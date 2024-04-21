@@ -1,22 +1,26 @@
-DROP DATABASE IF EXISTS employee_db;
-CREATE DATABASE employee_db;
+CREATE DATABASE if not exists employee_db;
 
-CREATE table department (
-id serial primary key,
+use employee_db;
+
+CREATE TABLE department (
+id int not null auto_increment primary key,
 name VARCHAR(30)
 );
 
 CREATE table role(
-id serial primary key,
+id int not null auto_increment primary key,
 title VARCHAR(30),
 salary decimal,
-department_id int references department(id)
+department_id int not null,
+foreign key (department_id) references department(id)
 );
 
 CREATE table employee(
-id serial primary key,
+id int not null auto_increment primary key,
 first_name VARCHAR(30),
 last_name VARCHAR(30),
-role_id INT references role(id),
-manager_id int references employee(id)
+role_id INT not null,
+manager_id int,
+foreign key (id) references department(id),
+foreign key (role_id) references role(id)
 );

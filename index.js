@@ -25,7 +25,7 @@ const viewAllRoles = async () => {
 }
 
 const viewAllEmployees = async () => {
-  const [rows] = await connection.query("select * from employee");
+  const [rows] = await connection.query("select employee.id, first_name, last_name, title from employee inner join role on role_id = role.id");
   console.table(rows);
 }
 
@@ -69,32 +69,77 @@ const addARole = async () => {
 }
 
 const addAnEmployee = async () => {
-  const [rows] = await connection.query("select * from department");
+  const { firstName, lastName } = await inquirer.prompt([{
+    name: "firstName",
+    type: "input",
+    message: "What is the employee's first name?",
+  },
 
-  const { department } = await inquirer.prompt([{
-    name: "department",
+  {
+    name: "lastName",
+    type: "input",
+    message: "What is the employee's last name?",
+  }
+
+
+  ])
+  const [roleRows] = await connection.query("select * from role");
+
+  const { title } = await inquirer.prompt([{
+    name: "title",
     type: "list",
-    message: "What department do you want to add an employee to?",
-    choices: rows
+    message: "What role will this employee have?",
+    // using the .map method to generate an array of just the row titles
+    choices: roleRows.map((role) => role.title)
+  }
+  ])
+
+  const [employeeRows] = await connection.query("select * from employee");
+
+  const { manager } = await inquirer.prompt([{
+    name: "manager",
+    type: "list",
+    message: "Who will the employee report to?",
+    choices: employeeRows.map((employee) => employee.first_name + " " + employee.last_name)
   }
   ])
 
   // This line uses a .find against the database results rows and it finds the row that name property equals the name the user chose
   // It also extracts the id that we need to complete the table insertion
-  const { id } = rows.find((row) => row.name === department);
-  console.log(id);
 
-  const [roleRows] = await connection.query("select * from role where `department_id` = ?",[parseInt(id)]);
-  const { title } = await inquirer.prompt([{
-    name: "title",
+  const { id: roleId } = roleRows.find((row) => row.title === title);
+  const { id: managerId } = employeeRows.find((row) => row.first_name + " " + row.last_name === manager);
+  const [result] = await connection.query("insert into employee (first_name, last_name, role_id, manager_id) values (?,?,?,?)", [firstName, lastName, roleId, managerId])
+  console.log(`successfully added employee: ${firstName} ${lastName}`);
+}
+
+const updateAnEmployeeRole = async () => {
+  const [employeeRows] = await connection.query("select * from employee")
+  const [roleRows] = await connection.query("select * from role")
+
+  const { employee, title } = await inquirer.prompt([{
     type: "list",
-    message: "What role will this employee have?",
-    choices: roleRows
+    name: "employee",
+    message: "Which employee would you like to update?",
+    choices: employeeRows.map((employee) => employee.first_name + " " + employee.last_name)
+  },
+
+  {
+    type: "list",
+    name: "title",
+    message: "What will the employee's new title be?",
+    choices: roleRows.map((role) => role.title)
+
   }
+
   ])
-  // const [result] = await connection.query("insert into role (title,salary,department_id) values (?,?,?)", [title, parseInt(salary), id]);
-  // console.log(`Role successfully added: ${title}`);
-  console.log(roleRows);
+  const { id: roleId } = roleRows.find((row) => row.title === title);
+  const { id } = employeeRows.find((row) => row.first_name + " " + row.last_name === employee);
+
+const [result] = await connection.query("update employee set role_id = ? where id = ?", [roleId, id])
+console.log(`Updated employee: ${employee} to role: ${title}`);
+
+
 }
 
 const startWizard = async () => {
@@ -130,6 +175,10 @@ const startWizard = async () => {
 
     case "add an employee":
       await addAnEmployee();
+      break;
+
+      case "update an employee role":
+      await updateAnEmployeeRole();
       break;
 
     default:
